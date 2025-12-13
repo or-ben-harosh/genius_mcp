@@ -13,51 +13,38 @@ This MCP server provides access to Genius.com's of song annotations and lyrics e
 ## 🏗️ Architecture & Flow
 
 ```mermaid
-graph TD
-    A[🤖 MCP Client<br/>Claude/GPT] -->|"get_lyrics_with_ids()"| B[🎵 MCP Server<br/>server.py]
-    A -->|"get_annotation(id)"| B
+graph LR
+    A[🤖 MCP Client] -->|get_lyrics_with_ids| B[server.py]
+    A -->|get_annotation| B
     
-    B -->|"Scrape HTML"| C[🕷️ Lyrics Scraper<br/>scraper.py]
-    B -->|"Fetch Annotation"| D[🔍 Genius API<br/>genius_api.py]
+    B --> C[scraper.py]
+    B --> D[genius_api.py]
     
-    C -->|"HTML"| E[🌐 genius.com<br/>Song Page]
-    D -->|"API Call"| F[🔌 api.genius.com<br/>/referents/ID]
+    C -->|HTML scrape| E[genius.com]
+    D -->|API call| F[api.genius.com]
     
-    E -->|"Lyrics + IDs"| C
-    F -->|"Annotation JSON"| D
+    E -.->|lyrics + IDs| A
+    F -.->|explanation| A
     
-    C -->|"Lyrics with [ID: xxx]"| B
-    D -->|"Explanation JSON"| B
-    
-    B -->|"Clean Response"| A
-    
-    style A fill:#e1f5fe
+    style A fill:#e3f2fd
     style B fill:#f3e5f5
     style C fill:#fff3e0
-    style D fill:#e8f5e8
-    style E fill:#fafafa
-    style F fill:#fafafa
+    style D fill:#e8f5e9
 ```
 
 <details>
-<summary>📱 Simple Text Diagram (click to expand)</summary>
+<summary>📱 Simple Flow (click to expand)</summary>
 
 ```
-🤖 MCP Client (Claude/GPT)
-    │
-    ├─► Tool 1: get_lyrics_with_ids("Rap God", "Eminem")
-    │   └─► 🎵 server.py
-    │       └─► 🕷️ scraper.py
-    │           └─► 🌐 genius.com/Eminem-rap-god-lyrics
-    │               └─► HTML → Parse lyrics → Extract annotation IDs
-    │                   └─► Returns: "lyrics text [ID: 123] more lyrics [ID: 456]"
-    │
-    └─► Tool 2: get_annotation("123")
-        └─► 🎵 server.py
-            └─► 🔍 genius_api.py
-                └─► 🔌 api.genius.com/referents/123
-                    └─► API Response → Parse JSON
-                        └─► Returns: {"lyric": "...", "explanation": "..."}
+🤖 Client
+ │
+ ├─ get_lyrics_with_ids("Rap God", "Eminem")
+ │   └─► server.py → scraper.py → genius.com
+ │       Returns: "lyrics [ID: 123] more lyrics [ID: 456]"
+ │
+ └─ get_annotation("123")
+     └─► server.py → genius_api.py → api.genius.com
+         Returns: {"lyric": "...", "explanation": "..."}
 ```
 
 </details>
