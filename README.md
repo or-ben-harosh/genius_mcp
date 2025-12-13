@@ -32,8 +32,8 @@ graph LR
 ```
 
 **Approach:**
-- **Lyrics**: HTML scraping (API doesn't provide full lyrics)
-- **Annotations**: Official API (reliable, structured data)
+- **Lyrics**: HTML scraping (official API doesn't provide full lyrics)
+- **Annotations**:  Official API usage
 
 ## Features
 
