@@ -2,9 +2,11 @@
 Utility functions and custom exceptions for the Genius MCP server.
 """
 
+import json
 import logging
 from typing import Any
 from dataclasses import dataclass
+from ..core.config import MAX_INPUT_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -57,26 +59,27 @@ def validate_input(song_name: str, artist_name: str) -> None:
     if not artist_name or not artist_name.strip():
         raise ValidationError("Artist name cannot be empty")
     
-    if len(song_name) > 200:
-        raise ValidationError("Song name too long (max 200 characters)")
-    
-    if len(artist_name) > 200:
-        raise ValidationError("Artist name too long (max 200 characters)")
+    if len(song_name) > MAX_INPUT_LENGTH:
+        raise ValidationError(f"Song name too long (max {MAX_INPUT_LENGTH} characters)")
+
+    if len(artist_name) > MAX_INPUT_LENGTH:
+        raise ValidationError(f"Artist name too long (max {MAX_INPUT_LENGTH} characters)")
 
 
 def sanitize_input(text: str) -> str:
     """Sanitize input text."""
-    return text.strip()[:200]  # Limit length and strip whitespace
+    return text.strip()[:MAX_INPUT_LENGTH]  # Limit length and strip whitespace
 
 
 def safe_json_response(data: Any, error_msg: str = "Unknown error") -> str:
     """Safely convert data to JSON response."""
     try:
-        import json
         return json.dumps(data, indent=2, ensure_ascii=False)
     except Exception as e:
         logger.error(f"JSON serialization failed: {e}")
-        return json.dumps({
+        # Fallback response in case of serialization error
+        fallback_data = {
             "error": error_msg,
             "details": str(e)
-        }, indent=2)
+        }
+        return json.dumps(fallback_data, indent=2)

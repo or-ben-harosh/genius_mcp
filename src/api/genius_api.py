@@ -5,14 +5,10 @@ Enhanced Genius API Client - Annotations and search
 import json
 import logging
 import httpx
-from typing import Optional, List, Dict, Any
-from utils import APIError
+from ..utils.utils import APIError
+from ..core.config import GENIUS_BASE_URL, SCRAPING_TIMEOUT
 
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://api.genius.com"
-TIMEOUT = 30.0
-
 
 class GeniusAPI:
     """Enhanced Genius API client for annotation lookups and search."""
@@ -35,9 +31,9 @@ class GeniusAPI:
             JSON with annotation details
         """
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=SCRAPING_TIMEOUT) as client:
                 response = await client.get(
-                    f"{BASE_URL}/referents/{annotation_id}",
+                    f"{GENIUS_BASE_URL}/referents/{annotation_id}",
                     headers=self.headers,
                     params={"text_format": "plain"}
                 )
@@ -94,9 +90,9 @@ class GeniusAPI:
             JSON with search results
         """
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=SCRAPING_TIMEOUT) as client:
                 response = await client.get(
-                    f"{BASE_URL}/search",
+                    f"{GENIUS_BASE_URL}/search",
                     headers=self.headers,
                     params={
                         "q": query,

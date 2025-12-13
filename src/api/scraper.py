@@ -1,17 +1,15 @@
 """
-Enhanced Genius Lyrics Scraper - Extracts lyrics with annotation IDs from HTML
+Genius Lyrics Web Scraper - Extracts lyrics with annotation IDs from HTML
 """
 
 import logging
 import re
 import httpx
 from bs4 import BeautifulSoup
-from typing import Tuple, Optional
-from utils import ScrapingError
+from ..utils.utils import ScrapingError
+from ..core.config import SCRAPING_TIMEOUT, SCRAPING_HEADERS
 
 logger = logging.getLogger(__name__)
-
-TIMEOUT = 30.0
 
 
 class LyricsScraper:
@@ -37,16 +35,8 @@ class LyricsScraper:
     @staticmethod
     async def fetch_html(url: str) -> str:
         """Fetch HTML from URL."""
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-        }
-        
-        async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
+        async with httpx.AsyncClient(timeout=SCRAPING_TIMEOUT, follow_redirects=True) as client:
+            response = await client.get(url, headers=SCRAPING_HEADERS)
             response.raise_for_status()
             return response.text
     
@@ -69,32 +59,29 @@ class LyricsScraper:
         
         for container in containers:
             for element in container.children:
-                if isinstance(element, str):
+                # Use NavigableString and Tag for type checking
+                from bs4 import NavigableString, Tag
+                if isinstance(element, NavigableString):
                     text = element.strip()
                     if text and text not in ['\n', ' ']:
                         lines.append(text)
-                
-                elif element.name == 'br':
-                    lines.append("")
-                
-                elif element.name == 'a':
-                    # Annotated text
-                    href = element.get('href', '')
-                    text = element.get_text()
-                    
-                    # Extract annotation ID from href
-                    match = re.search(r'/(\d+)', href)
-                    if match:
-                        ann_id = match.group(1)
-                        lines.append(f"{text} [ID: {ann_id}]")
+                elif isinstance(element, Tag):
+                    if element.name == 'br':
+                        lines.append("")
+                    elif element.name == 'a':
+                        href = element.get('href', '')
+                        text = element.get_text()
+                        match = re.search(r'/(\d+)', href)
+                        if match:
+                            ann_id = match.group(1)
+                            lines.append(f"{text} [ID: {ann_id}]")
+                        else:
+                            lines.append(text)
                     else:
-                        lines.append(text)
-                
-                else:
-                    text = element.get_text().strip()
-                    if text:
-                        lines.append(text)
-        
+                        text = element.get_text().strip()
+                        if text:
+                            lines.append(text)
+
         return '\n'.join(lines)
     
     @staticmethod
@@ -121,8 +108,8 @@ class LyricsScraper:
             lyrics = cls.parse_lyrics_with_ids(html)
             
             return f"{title}\n{'=' * 60}\n\n{lyrics}"
-            
         except httpx.HTTPStatusError as e:
+            url = cls.build_song_url(song_name, artist_name)
             if e.response.status_code == 403:
                 raise ScrapingError("Access forbidden - Genius may be blocking requests")
             elif e.response.status_code == 404:
@@ -133,7 +120,7 @@ class LyricsScraper:
                 raise ScrapingError(f"HTTP error {e.response.status_code}")
         
         except httpx.TimeoutException:
-            raise ScrapingError(f"Request timed out after {TIMEOUT}s")
+            raise ScrapingError(f"Request timed out after {SCRAPING_TIMEOUT}s")
         
         except httpx.ConnectError:
             raise ScrapingError("Failed to connect to Genius - check internet connection")

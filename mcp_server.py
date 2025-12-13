@@ -1,33 +1,23 @@
-#!/usr/bin/env python3
 """
 Genius Lyrics MCP Server
-
-Features:
-- Comprehensive error handling
-- Input validation
-- Rate limiting awareness
-- Better logging
-- Caching support
 """
 
 import logging
 import sys
-import os
-import asyncio
 import time
-from typing import Optional, Dict, Any
 from mcp.server import FastMCP
-from scraper import LyricsScraper
-from genius_api import GeniusAPI
-from utils import (
-    ScrapingError, APIError, ValidationError,
-    validate_input, sanitize_input, safe_json_response
-)
+from src.api.scraper import LyricsScraper
+from src.api.genius_api import GeniusAPI
+from src.utils.utils import ScrapingError, APIError, ValidationError
+from src.utils.utils import validate_input, sanitize_input, safe_json_response
+from src.core.config import GENIUS_API_TOKEN, MAX_SEARCH_RESULTS, MAX_REQUESTS_PER_MINUTE, validate_config, get_config
+from src.core.cache_manager import get_cache_key, get_cached, set_cache, get_cache_stats
+from src.core.rate_limiter import check_rate_limit, get_rate_limit_info
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Enhanced logging
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     stream=sys.stderr,
@@ -35,40 +25,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("genius-lyrics")
-
-# Configuration
-API_TOKEN = os.getenv("GENIUS_API_TOKEN")
-if not API_TOKEN:
-    logger.error("GENIUS_API_TOKEN environment variable not set")
+# Validate configuration on startup
+try:
+    validate_config()
+    logger.info("Configuration validated successfully")
+except Exception as e:
+    logger.error(f"Configuration validation failed: {e}")
     sys.exit(1)
 
-# Simple in-memory cache
-_cache: Dict[str, Dict[str, Any]] = {}
-CACHE_TTL = 3600  # 1 hour
-
-
-def _get_cache_key(prefix: str, *args: str) -> str:
-    """Generate cache key."""
-    return f"{prefix}::{':'.join(args)}"
-
-
-def _get_cached(key: str) -> Optional[Any]:
-    """Get cached value if not expired."""
-    if key in _cache:
-        data, timestamp = _cache[key]['data'], _cache[key]['timestamp']
-        if time.time() - timestamp < CACHE_TTL:
-            return data
-        del _cache[key]
-    return None
-
-
-def _set_cache(key: str, data: Any) -> None:
-    """Cache data with timestamp."""
-    _cache[key] = {
-        'data': data,
-        'timestamp': time.time()
-    }
+mcp = FastMCP("genius-lyrics")
 
 
 @mcp.tool()
@@ -77,15 +42,24 @@ async def get_lyrics_with_ids(song_name: str, artist_name: str) -> str:
     Get song lyrics with annotation IDs inline.
         
     Args:
-        song_name: Name of the song (max 200 chars)
-        artist_name: Name of the artist (max 200 chars)
-    
+        song_name: Name of the song (max chars configurable)
+        artist_name: Name of the artist (max chars configurable)
+
     Returns:
         Plain text lyrics with [ID: xxx] markers
         
     Example:
         "Look, I was gonna go easy on you" [ID: 2310153]
     """
+    # Rate limiting check
+    if not check_rate_limit():
+        return safe_json_response({
+            "error": "Rate limit exceeded",
+            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
+            "type": "rate_limit_error",
+            "rate_limit_info": get_rate_limit_info()
+        })
+
     start_time = time.time()
     
     try:
@@ -95,8 +69,8 @@ async def get_lyrics_with_ids(song_name: str, artist_name: str) -> str:
         artist_name = sanitize_input(artist_name)
         
         # Check cache
-        cache_key = _get_cache_key("lyrics", song_name.lower(), artist_name.lower())
-        cached_result = _get_cached(cache_key)
+        cache_key = get_cache_key("lyrics", song_name.lower(), artist_name.lower())
+        cached_result = get_cached(cache_key)
         if cached_result:
             logger.info(f"Cache hit for {artist_name} - {song_name}")
             return cached_result
@@ -107,8 +81,8 @@ async def get_lyrics_with_ids(song_name: str, artist_name: str) -> str:
         result = await LyricsScraper.get_lyrics_with_ids(song_name, artist_name)
         
         # Cache successful result
-        _set_cache(cache_key, result)
-        
+        set_cache(cache_key, result)
+
         elapsed = time.time() - start_time
         logger.info(f"Successfully fetched lyrics in {elapsed:.2f}s")
         
@@ -155,6 +129,15 @@ async def get_annotation(annotation_id: str) -> str:
     Returns:
         JSON: {"annotation_id", "lyric", "explanation", "success"}
     """
+    # Rate limiting check
+    if not check_rate_limit():
+        return safe_json_response({
+            "error": "Rate limit exceeded",
+            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
+            "type": "rate_limit_error",
+            "rate_limit_info": get_rate_limit_info()
+        })
+
     start_time = time.time()
     
     try:
@@ -169,20 +152,20 @@ async def get_annotation(annotation_id: str) -> str:
             raise ValidationError("Annotation ID should be numeric")
         
         # Check cache
-        cache_key = _get_cache_key("annotation", annotation_id)
-        cached_result = _get_cached(cache_key)
+        cache_key = get_cache_key("annotation", annotation_id)
+        cached_result = get_cached(cache_key)
         if cached_result:
             logger.info(f"Cache hit for annotation {annotation_id}")
             return cached_result
         
         logger.info(f"Fetching annotation: {annotation_id}")
         
-        api = GeniusAPI(API_TOKEN)
+        api = GeniusAPI(GENIUS_API_TOKEN)
         result = await api.get_annotation_explanation(annotation_id)
         
         # Cache successful result
-        _set_cache(cache_key, result)
-        
+        set_cache(cache_key, result)
+
         elapsed = time.time() - start_time
         logger.info(f"Successfully fetched annotation {annotation_id} in {elapsed:.2f}s")
         
@@ -226,24 +209,33 @@ async def search_songs(query: str, limit: int = 5) -> str:
     
     Args:
         query: Search query (song title, artist, lyrics fragment)
-        limit: Number of results to return (1-20, default 5)
-    
+        limit: Number of results to return (1-configurable max, default 5)
+
     Returns:
         JSON list of song matches with basic info
     """
+    # Rate limiting check
+    if not check_rate_limit():
+        return safe_json_response({
+            "error": "Rate limit exceeded",
+            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
+            "type": "rate_limit_error",
+            "rate_limit_info": get_rate_limit_info()
+        })
+
     try:
         # Input validation
         if not query or not query.strip():
             raise ValidationError("Search query cannot be empty")
         
-        if not 1 <= limit <= 20:
-            limit = min(max(limit, 1), 20)  # Clamp to valid range
-        
+        if not 1 <= limit <= MAX_SEARCH_RESULTS:
+            limit = min(max(limit, 1), MAX_SEARCH_RESULTS)  # Clamp to valid range
+
         query = sanitize_input(query)
         
         logger.info(f"Searching for: '{query}' (limit: {limit})")
         
-        api = GeniusAPI(API_TOKEN)
+        api = GeniusAPI(GENIUS_API_TOKEN)
         results = await api.search_songs(query, limit)
         
         return results
@@ -258,32 +250,39 @@ async def search_songs(query: str, limit: int = 5) -> str:
 
 
 @mcp.tool()
-async def get_server_stats() -> str:
+async def get_server_status() -> str:
     """
-    Get server statistics and health info (NEW FEATURE).
-    
+    Get server status, configuration, and statistics.
+
     Returns:
-        JSON with cache stats, uptime, etc.
+        JSON with server configuration, cache stats, and rate limiting info
     """
     try:
-        stats = {
-            "cache_size": len(_cache),
-            "cache_keys": list(_cache.keys())[:10],  # First 10 keys
-            "server_status": "healthy",
-            "features": ["lyrics_scraping", "annotation_lookup", "caching", "search"]
-        }
-        
-        return safe_json_response(stats)
-        
+        config_info = get_config()
+        cache_stats = get_cache_stats()
+        rate_limit_info = get_rate_limit_info()
+
+        return safe_json_response({
+            "server_status": "running",
+            "configuration": config_info,
+            "cache_statistics": cache_stats,
+            "rate_limit_status": rate_limit_info,
+            "timestamp": time.time()
+        })
     except Exception as e:
-        logger.error(f"Stats error: {e}")
-        return safe_json_response({"error": "Failed to get stats"})
+        logger.error(f"Error getting server status: {e}", exc_info=True)
+        return safe_json_response({
+            "error": "Status check failed",
+            "message": str(e),
+            "type": "server_error"
+        })
 
 
 def main():
-    """Main entry point with enhanced startup info."""
+    """Main entry point."""
     logger.info("Starting Genius MCP Server")
-    
+    logger.info(f"Configuration: {get_config()}")
+
     try:
         mcp.run(transport='stdio')
     except KeyboardInterrupt:

@@ -1,0 +1,58 @@
+"""
+Cache management for the Genius MCP Server
+"""
+
+import time
+from typing import Optional, Dict, Any
+from .config import CACHE_TTL
+
+# Simple in-memory cache
+_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def get_cache_key(prefix: str, *args: str) -> str:
+    """Generate cache key."""
+    return f"{prefix}::{':'.join(args)}"
+
+
+def get_cached(key: str) -> Optional[Any]:
+    """Get cached value if not expired."""
+    if key in _cache:
+        data, timestamp = _cache[key]['data'], _cache[key]['timestamp']
+        if time.time() - timestamp < CACHE_TTL:
+            return data
+        del _cache[key]
+    return None
+
+
+def set_cache(key: str, data: Any) -> None:
+    """Cache data with timestamp."""
+    _cache[key] = {
+        'data': data,
+        'timestamp': time.time()
+    }
+
+
+def clear_cache() -> None:
+    """Clear all cached data."""
+    _cache.clear()
+
+
+def get_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics."""
+    now = time.time()
+    active_entries = 0
+    expired_entries = 0
+
+    for entry in _cache.values():
+        if now - entry['timestamp'] < CACHE_TTL:
+            active_entries += 1
+        else:
+            expired_entries += 1
+
+    return {
+        "total_entries": len(_cache),
+        "active_entries": active_entries,
+        "expired_entries": expired_entries,
+        "cache_ttl": CACHE_TTL
+    }
