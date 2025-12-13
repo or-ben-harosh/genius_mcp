@@ -1,4 +1,4 @@
-# 🎵 Genius MCP Server
+# Genius MCP Server
 
 > **MCP server for song lyrics and annotation retrieval from Genius.com**
 
