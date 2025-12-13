@@ -13,41 +13,28 @@ This MCP server provides access to Genius.com's of song annotations and lyrics e
 ## 🏗️ Architecture & Flow
 
 ```mermaid
-graph LR
-    A[🤖 MCP Client] -->|get_lyrics_with_ids| B[server.py]
-    A -->|get_annotation| B
+graph TB
+    Client["🤖 MCP Client"]
     
-    B --> C[scraper.py]
-    B --> D[genius_api.py]
+    Client -->|"get_lyrics_with_ids()"| Server["📦 server.py"]
+    Client -->|"get_annotation(id)"| Server
     
-    C -->|HTML scrape| E[genius.com]
-    D -->|API call| F[api.genius.com]
+    Server --> Scraper["🕷️ scraper.py"]
+    Server --> API["🔌 genius_api.py"]
     
-    E -.->|lyrics + IDs| A
-    F -.->|explanation| A
+    Scraper -->|"HTML scrape"| Web["genius.com"]
+    API -->|"API call"| Endpoint["api.genius.com"]
     
-    style A fill:#e3f2fd
-    style B fill:#f3e5f5
-    style C fill:#fff3e0
-    style D fill:#e8f5e9
+    Web -.->|"lyrics [ID: 123]"| Client
+    Endpoint -.->|"explanation"| Client
+    
+    style Client fill:#4fc3f7,stroke:#01579b,stroke-width:3px,color:#000
+    style Server fill:#ba68c8,stroke:#4a148c,stroke-width:3px,color:#000
+    style Scraper fill:#ffb74d,stroke:#e65100,stroke-width:2px,color:#000
+    style API fill:#81c784,stroke:#2e7d32,stroke-width:2px,color:#000
+    style Web fill:#fff,stroke:#666,stroke-width:1px,color:#000
+    style Endpoint fill:#fff,stroke:#666,stroke-width:1px,color:#000
 ```
-
-<details>
-<summary>📱 Simple Flow (click to expand)</summary>
-
-```
-🤖 Client
- │
- ├─ get_lyrics_with_ids("Rap God", "Eminem")
- │   └─► server.py → scraper.py → genius.com
- │       Returns: "lyrics [ID: 123] more lyrics [ID: 456]"
- │
- └─ get_annotation("123")
-     └─► server.py → genius_api.py → api.genius.com
-         Returns: {"lyric": "...", "explanation": "..."}
-```
-
-</details>
 
 **Hybrid Approach:**
 - **Lyrics**: HTML scraping (API doesn't provide full lyrics)
