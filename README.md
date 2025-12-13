@@ -1,12 +1,9 @@
 # Genius MCP Server
-
 > **MCP server for song lyrics and annotation retrieval from Genius.com**
 
 [![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-Compatible-blue)]()
 [![Python](https://img.shields.io/badge/Python-3.12+-green)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
-
-## 🏗️ Architecture & Flow
 
 ```mermaid
 graph LR
@@ -34,16 +31,16 @@ graph LR
     style Endpoint fill:#000,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-**Hybrid Approach:**
+**Approach:**
 - **Lyrics**: HTML scraping (API doesn't provide full lyrics)
 - **Annotations**: Official API (reliable, structured data)
 
-## ⚡ Features
+## Features
 
-- 🎤 **Complete Lyrics Extraction** - Scrapes full song lyrics with annotation ids
-- 💡 **API Annotations** - Reliable explanations via Genius API per annotation id
+- **Complete Lyrics Extraction** - Scrapes full song lyrics with annotation ids
+- **API Annotations** - Reliable explanations via Genius API per annotation id
 
-## 🚦 Quick Start
+## Quick Start
 
 ### 1. Get Your Genius API Token
 ```bash
@@ -65,9 +62,9 @@ export GENIUS_API_TOKEN="your_token_here"
 python server.py
 ```
 
-## 🔧 Available MCP Tools
+## Available MCP Tools
 
-### 1. 🎤 `get_lyrics_with_ids(song_name, artist_name)`
+### 1. `get_lyrics_with_ids(song_name, artist_name)`
 Get complete song lyrics with annotation IDs embedded inline.
 
 **Parameters:**
@@ -86,7 +83,7 @@ Rap God
 (Six minutes—, six minutes—) [ID: 2310030]
 ```
 
-### 2. 💡 `get_annotation(annotation_id)`
+### 2. `get_annotation(annotation_id)`
 Retrieve specific annotation explanation by ID.
 
 **Parameters:**
