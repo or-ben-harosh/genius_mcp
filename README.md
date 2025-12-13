@@ -13,29 +13,29 @@ This MCP server provides access to Genius.com's of song annotations and lyrics e
 ## 🏗️ Architecture & Flow
 
 ```mermaid
-graph TB
-    Client["🤖 MCP Client"]
-    Server["📦 server.py"]
-    Scraper["🕷️ scraper.py"]
-    API["🔌 genius_api.py"]
+graph LR
+    Client["MCP Client"]
+    Server["server.py"]
+    Scraper["scraper.py"]
+    API["genius_api.py"]
     Web["genius.com"]
     Endpoint["api.genius.com"]
     
-    Client -->|get_lyrics_with_ids| Server
+    Client -->|get_lyrics| Server
     Client -->|get_annotation| Server
     Server --> Scraper
     Server --> API
     Scraper -->|HTML scrape| Web
     API -->|API call| Endpoint
-    Web -.->|lyrics [ID: 123]| Client
-    Endpoint -.->|explanation| Client
+    Web -.->|lyrics + IDs| Client
+    Endpoint -.->|annotation_explanation| Client
     
-    style Client fill:#4fc3f7,stroke:#01579b,stroke-width:3px
-    style Server fill:#ba68c8,stroke:#4a148c,stroke-width:3px
-    style Scraper fill:#ffb74d,stroke:#e65100,stroke-width:3px
-    style API fill:#81c784,stroke:#2e7d32,stroke-width:3px
-    style Web fill:#fff,stroke:#333,stroke-width:2px
-    style Endpoint fill:#fff,stroke:#333,stroke-width:2px
+    style Client fill:#000,stroke:#fff,stroke-width:3px,color:#fff
+    style Server fill:#000,stroke:#fff,stroke-width:3px,color:#fff
+    style Scraper fill:#000,stroke:#fff,stroke-width:3px,color:#fff
+    style API fill:#000,stroke:#fff,stroke-width:3px,color:#fff
+    style Web fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style Endpoint fill:#000,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 **Hybrid Approach:**
