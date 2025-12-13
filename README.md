@@ -6,10 +6,6 @@
 [![Python](https://img.shields.io/badge/Python-3.12+-green)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)]()
 
-## 🚀 Overview
-
-This MCP server provides access to Genius.com's of song annotations and lyrics explanations. 
-
 ## 🏗️ Architecture & Flow
 
 ```mermaid
