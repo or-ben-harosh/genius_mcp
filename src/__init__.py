@@ -1,0 +1,2 @@
+# Genius MCP Server package
+
