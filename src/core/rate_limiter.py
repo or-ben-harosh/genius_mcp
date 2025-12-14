@@ -1,6 +1,6 @@
 import time
 from typing import Dict, List, Any
-from .config import MAX_REQUESTS_PER_MINUTE
+from src.core.config import MAX_REQUESTS_PER_MINUTE
 
 # Request history for rate limiting
 _request_history: Dict[str, List[float]] = {}

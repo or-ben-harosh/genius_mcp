@@ -6,7 +6,7 @@ import logging
 import re
 import httpx
 from bs4 import BeautifulSoup
-from core.config import SCRAPING_TIMEOUT, SCRAPING_HEADERS
+from src.core.config import SCRAPING_TIMEOUT, SCRAPING_HEADERS
 
 logger = logging.getLogger(__name__)
 

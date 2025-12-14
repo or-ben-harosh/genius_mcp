@@ -5,7 +5,7 @@ Utility functions and custom exceptions for the Genius MCP server.
 import json
 import logging
 from typing import Any
-from core.config import MAX_INPUT_LENGTH
+from src.core.config import MAX_INPUT_LENGTH
 
 logger = logging.getLogger(__name__)
 

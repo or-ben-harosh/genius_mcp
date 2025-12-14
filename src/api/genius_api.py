@@ -5,7 +5,7 @@ Enhanced Genius API Client - Annotations and search
 import json
 import logging
 import httpx
-from core.config import GENIUS_BASE_URL, SCRAPING_TIMEOUT, MAX_SEARCH_RESULTS
+from src.core.config import GENIUS_BASE_URL, SCRAPING_TIMEOUT, MAX_SEARCH_RESULTS
 
 logger = logging.getLogger(__name__)
 
