@@ -1,7 +1,3 @@
-"""
-Rate limiting functionality for the Genius MCP Server
-"""
-
 import time
 from typing import Dict, List, Any
 from .config import MAX_REQUESTS_PER_MINUTE
@@ -51,12 +47,5 @@ def get_rate_limit_info(user_id: str = "default") -> Dict[str, Any]:
     return {
         "requests_made": len(recent_requests),
         "requests_remaining": max(0, MAX_REQUESTS_PER_MINUTE - len(recent_requests)),
-        "reset_time": min(recent_requests) + 60 if recent_requests else now,
         "limit": MAX_REQUESTS_PER_MINUTE
     }
-
-
-def reset_rate_limit(user_id: str = "default") -> None:
-    """Reset rate limit for a user (admin function)."""
-    if user_id in _request_history:
-        del _request_history[user_id]

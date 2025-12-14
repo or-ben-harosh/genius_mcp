@@ -1,18 +1,13 @@
 """
-Genius Lyrics MCP Server
+Genius MCP Server
 """
 
 import logging
 import sys
-import time
+from typing import List
 from mcp.server import FastMCP
-from src.api.scraper import LyricsScraper
-from src.api.genius_api import GeniusAPI
-from src.utils.utils import ScrapingError, APIError, ValidationError
-from src.utils.utils import validate_input, sanitize_input, safe_json_response
-from src.core.config import GENIUS_API_TOKEN, MAX_SEARCH_RESULTS, MAX_REQUESTS_PER_MINUTE, validate_config, get_config
-from src.core.cache_manager import get_cache_key, get_cached, set_cache, get_cache_stats
-from src.core.rate_limiter import check_rate_limit, get_rate_limit_info
+from src.tools import lyrics_tool, annotation_tool, search_tool
+from src.core.config import validate_config, get_config
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -51,155 +46,24 @@ async def get_lyrics_with_ids(song_name: str, artist_name: str) -> str:
     Example:
         "Look, I was gonna go easy on you" [ID: 2310153]
     """
-    # Rate limiting check
-    if not check_rate_limit():
-        return safe_json_response({
-            "error": "Rate limit exceeded",
-            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
-            "type": "rate_limit_error",
-            "rate_limit_info": get_rate_limit_info()
-        })
-
-    start_time = time.time()
-    
-    try:
-        # Input validation and sanitization
-        validate_input(song_name, artist_name)
-        song_name = sanitize_input(song_name)
-        artist_name = sanitize_input(artist_name)
-        
-        # Check cache
-        cache_key = get_cache_key("lyrics", song_name.lower(), artist_name.lower())
-        cached_result = get_cached(cache_key)
-        if cached_result:
-            logger.info(f"Cache hit for {artist_name} - {song_name}")
-            return cached_result
-        
-        logger.info(f"Fetching lyrics for: {artist_name} - {song_name}")
-        
-        # Scrape lyrics
-        result = await LyricsScraper.get_lyrics_with_ids(song_name, artist_name)
-        
-        # Cache successful result
-        set_cache(cache_key, result)
-
-        elapsed = time.time() - start_time
-        logger.info(f"Successfully fetched lyrics in {elapsed:.2f}s")
-        
-        return result
-        
-    except ValidationError as e:
-        logger.warning(f"Input validation failed: {e}")
-        return safe_json_response({
-            "error": "Invalid input",
-            "message": str(e),
-            "type": "validation_error"
-        })
-        
-    except ScrapingError as e:
-        logger.error(f"Scraping error for {artist_name} - {song_name}: {e}")
-        return safe_json_response({
-            "error": "Scraping failed",
-            "message": str(e),
-            "type": "scraping_error",
-            "suggestion": "Try checking the song/artist spelling or try again later"
-        })
-        
-    except Exception as e:
-        elapsed = time.time() - start_time
-        logger.error(f"Unexpected error after {elapsed:.2f}s: {e}", exc_info=True)
-        return safe_json_response({
-            "error": "Unexpected error",
-            "message": "An unexpected error occurred while fetching lyrics",
-            "type": "internal_error",
-            "details": str(e) if logger.level <= logging.DEBUG else None
-        })
+    return await lyrics_tool.get_lyrics_with_ids(song_name, artist_name)
 
 
 @mcp.tool()
-async def get_annotation(annotation_id: str) -> str:
+async def get_annotation(annotation_ids: List[int]) -> str:
     """
-    Get annotation explanation by ID.
-    
-    Enhanced with validation, caching, and retry logic.
-    
+    Get annotation explanations by IDs (batch processing).
+
+    Enhanced with validation, caching, and rate limiting for multiple annotations.
+
     Args:
-        annotation_id: The annotation ID (e.g., "2310153")
-    
+        annotation_ids: List of annotation IDs (e.g., [2310153, 1234567])
+                       Maximum of 50 IDs per request (configurable)
+
     Returns:
-        JSON: {"annotation_id", "lyric", "explanation", "success"}
+        JSON: List of annotation results with {"annotation_id", "lyric", "explanation", "success"} for each
     """
-    # Rate limiting check
-    if not check_rate_limit():
-        return safe_json_response({
-            "error": "Rate limit exceeded",
-            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
-            "type": "rate_limit_error",
-            "rate_limit_info": get_rate_limit_info()
-        })
-
-    start_time = time.time()
-    
-    try:
-        # Input validation
-        if not annotation_id or not annotation_id.strip():
-            raise ValidationError("Annotation ID cannot be empty")
-        
-        annotation_id = annotation_id.strip()
-        
-        # Validate ID format (should be numeric)
-        if not annotation_id.isdigit():
-            raise ValidationError("Annotation ID should be numeric")
-        
-        # Check cache
-        cache_key = get_cache_key("annotation", annotation_id)
-        cached_result = get_cached(cache_key)
-        if cached_result:
-            logger.info(f"Cache hit for annotation {annotation_id}")
-            return cached_result
-        
-        logger.info(f"Fetching annotation: {annotation_id}")
-        
-        api = GeniusAPI(GENIUS_API_TOKEN)
-        result = await api.get_annotation_explanation(annotation_id)
-        
-        # Cache successful result
-        set_cache(cache_key, result)
-
-        elapsed = time.time() - start_time
-        logger.info(f"Successfully fetched annotation {annotation_id} in {elapsed:.2f}s")
-        
-        return result
-        
-    except ValidationError as e:
-        logger.warning(f"Validation error for annotation {annotation_id}: {e}")
-        return safe_json_response({
-            "error": "Invalid input",
-            "message": str(e),
-            "type": "validation_error",
-            "annotation_id": annotation_id
-        })
-        
-    except APIError as e:
-        logger.error(f"API error for annotation {annotation_id}: {e}")
-        return safe_json_response({
-            "error": "API error",
-            "message": str(e),
-            "type": "api_error",
-            "annotation_id": annotation_id,
-            "suggestion": "Check if the annotation ID is correct"
-        })
-        
-    except Exception as e:
-        elapsed = time.time() - start_time
-        logger.error(f"Unexpected error for annotation {annotation_id} after {elapsed:.2f}s: {e}", exc_info=True)
-        return safe_json_response({
-            "error": "Unexpected error",
-            "message": "An unexpected error occurred while fetching annotation",
-            "type": "internal_error",
-            "annotation_id": annotation_id,
-            "details": str(e) if logger.level <= logging.DEBUG else None
-        })
+    return await annotation_tool.get_annotation(annotation_ids)
 
 
 @mcp.tool()
@@ -214,68 +78,7 @@ async def search_songs(query: str, limit: int = 5) -> str:
     Returns:
         JSON list of song matches with basic info
     """
-    # Rate limiting check
-    if not check_rate_limit():
-        return safe_json_response({
-            "error": "Rate limit exceeded",
-            "message": f"Maximum {MAX_REQUESTS_PER_MINUTE} requests per minute allowed",
-            "type": "rate_limit_error",
-            "rate_limit_info": get_rate_limit_info()
-        })
-
-    try:
-        # Input validation
-        if not query or not query.strip():
-            raise ValidationError("Search query cannot be empty")
-        
-        if not 1 <= limit <= MAX_SEARCH_RESULTS:
-            limit = min(max(limit, 1), MAX_SEARCH_RESULTS)  # Clamp to valid range
-
-        query = sanitize_input(query)
-        
-        logger.info(f"Searching for: '{query}' (limit: {limit})")
-        
-        api = GeniusAPI(GENIUS_API_TOKEN)
-        results = await api.search_songs(query, limit)
-        
-        return results
-        
-    except Exception as e:
-        logger.error(f"Search error: {e}", exc_info=True)
-        return safe_json_response({
-            "error": "Search failed",
-            "message": str(e),
-            "type": "search_error"
-        })
-
-
-@mcp.tool()
-async def get_server_status() -> str:
-    """
-    Get server status, configuration, and statistics.
-
-    Returns:
-        JSON with server configuration, cache stats, and rate limiting info
-    """
-    try:
-        config_info = get_config()
-        cache_stats = get_cache_stats()
-        rate_limit_info = get_rate_limit_info()
-
-        return safe_json_response({
-            "server_status": "running",
-            "configuration": config_info,
-            "cache_statistics": cache_stats,
-            "rate_limit_status": rate_limit_info,
-            "timestamp": time.time()
-        })
-    except Exception as e:
-        logger.error(f"Error getting server status: {e}", exc_info=True)
-        return safe_json_response({
-            "error": "Status check failed",
-            "message": str(e),
-            "type": "server_error"
-        })
+    return await search_tool.search_songs(query, limit)
 
 
 def main():

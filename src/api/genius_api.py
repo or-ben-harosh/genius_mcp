@@ -5,13 +5,12 @@ Enhanced Genius API Client - Annotations and search
 import json
 import logging
 import httpx
-from ..utils.utils import APIError
-from ..core.config import GENIUS_BASE_URL, SCRAPING_TIMEOUT
+from ..core.config import GENIUS_BASE_URL, SCRAPING_TIMEOUT, MAX_SEARCH_RESULTS
 
 logger = logging.getLogger(__name__)
 
 class GeniusAPI:
-    """Enhanced Genius API client for annotation lookups and search."""
+    """Genius API client for annotation lookups and search."""
     
     def __init__(self, token: str):
         self.token = token
@@ -24,13 +23,29 @@ class GeniusAPI:
         """
         Get annotation explanation by ID.
         
+        Enhanced with better validation and error handling for batch processing.
+
         Args:
-            annotation_id: The annotation ID (e.g., "2310153")
-        
+            annotation_id: The annotation ID as string (e.g., "2310153")
+
         Returns:
-            JSON with annotation details
+            JSON with annotation details including success flag
         """
+        # Input validation
+        if not annotation_id or not annotation_id.strip():
+            logger.error("Annotation ID cannot be empty")
+            raise ValueError("Annotation ID cannot be empty")
+
+        annotation_id = annotation_id.strip()
+
+        # Validate ID format (should be numeric)
+        if not annotation_id.isdigit():
+            logger.error(f"Invalid annotation ID format: {annotation_id}")
+            raise ValueError(f"Annotation ID must be numeric, got: {annotation_id}")
+
         try:
+            logger.debug(f"Fetching annotation {annotation_id} from Genius API")
+
             async with httpx.AsyncClient(timeout=SCRAPING_TIMEOUT) as client:
                 response = await client.get(
                     f"{GENIUS_BASE_URL}/referents/{annotation_id}",
@@ -38,47 +53,84 @@ class GeniusAPI:
                     params={"text_format": "plain"}
                 )
                 
+                # Enhanced error handling with specific messages
                 if response.status_code == 404:
-                    raise APIError(f"Annotation ID {annotation_id} not found")
-                
+                    logger.warning(f"Annotation ID {annotation_id} not found (404)")
+                    raise ValueError(f"Annotation ID {annotation_id} not found")
+
                 if response.status_code == 429:
-                    raise APIError("Rate limit exceeded. Please try again later")
-                
+                    logger.warning(f"Rate limit exceeded for annotation {annotation_id} (429)")
+                    raise ConnectionError("Rate limit exceeded. Please try again later")
+
+                if response.status_code == 403:
+                    logger.warning(f"Access forbidden for annotation {annotation_id} (403)")
+                    raise PermissionError("Access forbidden - API key may be invalid")
+
                 if response.status_code != 200:
-                    raise APIError(f"API error: status {response.status_code}")
-                
-                data = response.json()
+                    logger.error(f"API error for annotation {annotation_id}: status {response.status_code}")
+                    raise RuntimeError(f"API error: HTTP {response.status_code}")
+
+                # Parse response
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON response for annotation {annotation_id}: {e}")
+                    raise RuntimeError("Invalid response format from Genius API")
+
                 referent = data.get("response", {}).get("referent", {})
                 
                 if not referent:
-                    raise APIError("No data returned from API")
-                
-                lyric = referent.get("fragment", "")
+                    logger.warning(f"No referent data returned for annotation ID {annotation_id}")
+                    raise RuntimeError("No annotation data found in API response")
+
+                # Extract annotation details
+                lyric = referent.get("fragment", "").strip()
                 annotations = referent.get("annotations", [])
                 
                 if not annotations:
-                    explanation = "No explanation available"
+                    explanation = "No explanation available for this annotation"
+                    logger.info(f"No explanation found for annotation {annotation_id}")
                 else:
                     explanation = annotations[0].get("body", {}).get("plain", "No explanation available")
-                
+                    if not explanation or explanation.strip() == "":
+                        explanation = "Explanation is empty"
+
+                # Build result with enhanced metadata
                 result = {
                     "annotation_id": annotation_id,
                     "lyric": lyric,
-                    "explanation": explanation,
+                    "explanation": explanation.strip() if explanation else "No explanation available",
                     "success": True,
-                    "url": f"https://genius.com/annotations/{annotation_id}"
+                    "url": f"https://genius.com/annotations/{annotation_id}",
+                    "has_explanation": bool(explanation and explanation.strip()),
+                    "annotation_count": len(annotations)
                 }
                 
+                logger.info(f"Successfully fetched annotation {annotation_id}")
                 return json.dumps(result, indent=2, ensure_ascii=False)
                 
+        except httpx.TimeoutException:
+            logger.error(f"Timeout while fetching annotation {annotation_id}")
+            raise TimeoutError(f"Request timed out after {SCRAPING_TIMEOUT}s")
+
+        except httpx.ConnectError as e:
+            logger.error(f"Connection error for annotation {annotation_id}: {e}")
+            raise ConnectionError("Failed to connect to Genius API - check internet connection")
+
         except httpx.HTTPError as e:
-            raise APIError(f"Network error: {str(e)}")
-        except APIError:
+            logger.error(f"HTTP error for annotation {annotation_id}: {e}")
+            raise ConnectionError(f"Network error: {str(e)}")
+
+        except (ValueError, PermissionError, TimeoutError, ConnectionError, RuntimeError):
+            # Re-raise our custom exceptions as-is
             raise
+
         except Exception as e:
-            raise APIError(f"Failed to get annotation: {str(e)}")
-    
-    async def search_songs(self, query: str, limit: int = 5) -> str:
+            logger.error(f"Unexpected error fetching annotation {annotation_id}: {e}", exc_info=True)
+            raise RuntimeError(f"Unexpected error: {str(e)}")
+
+
+    async def search_songs(self, query: str, limit: int = MAX_SEARCH_RESULTS) -> str:
         """
         Search for songs on Genius.
         
@@ -101,11 +153,13 @@ class GeniusAPI:
                 )
                 
                 if response.status_code == 429:
-                    raise APIError("Rate limit exceeded. Please try again later")
-                
+                    logger.error(f"Rate limit exceeded for search query: {query}")
+                    raise ConnectionError(f"Rate limit exceeded for search query: {query}")
+
                 if response.status_code != 200:
-                    raise APIError(f"Search failed: status {response.status_code}")
-                
+                    logger.error(f"Search failed: status {response.status_code}")
+                    raise RuntimeError(f"Search failed: status {response.status_code}")
+
                 data = response.json()
                 hits = data.get("response", {}).get("hits", [])
                 
@@ -129,8 +183,8 @@ class GeniusAPI:
                 }, indent=2, ensure_ascii=False)
                 
         except httpx.HTTPError as e:
-            raise APIError(f"Network error: {str(e)}")
-        except APIError:
-            raise
+            logger.error(f"Network error during search for query '{query}': {str(e)}")
+            raise ConnectionError(f"Network error: {str(e)}")
         except Exception as e:
-            raise APIError(f"Search failed: {str(e)}")
+            logger.error(f"Search failed for query '{query}': {str(e)}")
+            raise RuntimeError(f"Search failed: {str(e)}")

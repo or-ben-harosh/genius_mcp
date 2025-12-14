@@ -6,7 +6,6 @@ import logging
 import re
 import httpx
 from bs4 import BeautifulSoup
-from ..utils.utils import ScrapingError
 from ..core.config import SCRAPING_TIMEOUT, SCRAPING_HEADERS
 
 logger = logging.getLogger(__name__)
@@ -53,6 +52,7 @@ class LyricsScraper:
         containers = soup.find_all('div', {'data-lyrics-container': 'true'})
         
         if not containers:
+            logger.exception("No lyrics containers found in page")
             raise Exception("No lyrics found on page")
         
         lines = []
@@ -111,21 +111,30 @@ class LyricsScraper:
         except httpx.HTTPStatusError as e:
             url = cls.build_song_url(song_name, artist_name)
             if e.response.status_code == 403:
-                raise ScrapingError("Access forbidden - Genius may be blocking requests")
+                logger.error(f"Access forbidden when accessing URL: {url} - Genius may be blocking requests")
+                raise PermissionError(f"Access forbidden when accessing URL: {url} - Genius may be blocking requests")
             elif e.response.status_code == 404:
-                raise ScrapingError(f"Song not found at URL: {url}")
+                logger.error(f"Song not found at URL: {url}")
+                raise FileNotFoundError(f"Song not found at URL: {url}")
             elif e.response.status_code == 429:
-                raise ScrapingError("Rate limited - please try again later")
+                logger.error(f"Rate limited when accessing URL: {url}")
+                raise ConnectionError(f"Rate limited when accessing URL: {url}")
             else:
-                raise ScrapingError(f"HTTP error {e.response.status_code}")
-        
+                logger.error(f"HTTP error {e.response.status_code} when accessing URL: {url}")
+                raise RuntimeError(f"HTTP error {e.response.status_code} when accessing URL: {url}")
+
         except httpx.TimeoutException:
-            raise ScrapingError(f"Request timed out after {SCRAPING_TIMEOUT}s")
-        
+            logger.error(f"Request timed out after {SCRAPING_TIMEOUT}s")
+            raise TimeoutError(f"Request timed out after {SCRAPING_TIMEOUT}s")
+
         except httpx.ConnectError:
-            raise ScrapingError("Failed to connect to Genius - check internet connection")
-        
+            logger.error("Failed to connect to Genius - check internet connection")
+            raise ConnectionError("Failed to connect to Genius - check internet connection")
+
         except Exception as e:
             if "No lyrics found" in str(e):
-                raise ScrapingError(f"No lyrics found for '{artist_name} - {song_name}'")
-            raise ScrapingError(f"Scraping failed: {str(e)}")
+                logger.error(f"No lyrics found for '{artist_name} - {song_name}'")
+                raise ValueError(f"No lyrics found for '{artist_name} - {song_name}'")
+
+            logger.error(f"Scraping failed: {str(e)}")
+            raise RuntimeError(f"Scraping failed: {str(e)}")

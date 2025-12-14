@@ -1,18 +1,14 @@
-"""
-Configuration settings for the Genius MCP Server
-"""
-
 import os
 from typing import Dict, Any
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 # API Configuration
 GENIUS_API_TOKEN = os.getenv("GENIUS_API_TOKEN")
 GENIUS_BASE_URL = "https://api.genius.com"
-
-
 
 # Scraping Configuration
 SCRAPING_TIMEOUT = float(os.getenv("SCRAPING_TIMEOUT", "30.0"))
@@ -29,6 +25,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 # Validation Limits
 MAX_INPUT_LENGTH = int(os.getenv("MAX_INPUT_LENGTH", "200"))
 MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "20"))
+MAX_ANNOTATION_IDS = int(os.getenv("MAX_ANNOTATION_IDS", "50"))
+MAX_SONG_SEARCH_RESULTS = int(os.getenv("MAX_SONG_SEARCH_RESULTS", "10"))
 
 # Headers for scraping
 SCRAPING_HEADERS: Dict[str, str] = {
@@ -44,18 +42,24 @@ SCRAPING_HEADERS: Dict[str, str] = {
 def validate_config() -> None:
     """Validate configuration on startup."""
     if not GENIUS_API_TOKEN:
-        raise EnvironmentError(
-            "GENIUS_API_TOKEN is required. Please set it in your environment variables."
-        )
+        logger.error("GENIUS_API_TOKEN is required. Please set it in your environment variables.")
+        raise EnvironmentError("GENIUS_API_TOKEN is required. Please set it in your environment variables.")
 
     if CACHE_TTL <= 0:
+        logger.error("CACHE_TTL must be positive")
         raise ValueError("CACHE_TTL must be positive")
 
     if MAX_REQUESTS_PER_MINUTE <= 0:
+        logger.error("MAX_REQUESTS_PER_MINUTE must be positive")
         raise ValueError("MAX_REQUESTS_PER_MINUTE must be positive")
 
     if MAX_INPUT_LENGTH <= 0:
+        logger.error("MAX_INPUT_LENGTH must be positive")
         raise ValueError("MAX_INPUT_LENGTH must be positive")
+
+    if MAX_ANNOTATION_IDS <= 0:
+        logger.error("MAX_ANNOTATION_IDS must be positive")
+        raise ValueError("MAX_ANNOTATION_IDS must be positive")
 
 
 def get_config() -> Dict[str, Any]:
@@ -67,6 +71,7 @@ def get_config() -> Dict[str, Any]:
         "scraping_timeout": SCRAPING_TIMEOUT,
         "max_input_length": MAX_INPUT_LENGTH,
         "max_search_results": MAX_SEARCH_RESULTS,
+        "max_annotation_ids": MAX_ANNOTATION_IDS,
         "max_requests_per_minute": MAX_REQUESTS_PER_MINUTE,
         "log_level": LOG_LEVEL,
     }
