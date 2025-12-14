@@ -3,10 +3,10 @@ Search tool for finding songs on Genius
 """
 
 import logging
-from ..api.genius_api import GeniusAPI
-from ..utils.utils import sanitize_input, safe_json_response
-from ..core.rate_limiter import check_rate_limit, get_rate_limit_info
-from ..core.config import GENIUS_API_TOKEN, MAX_REQUESTS_PER_MINUTE, MAX_SEARCH_RESULTS
+from api.genius_api import GeniusAPI
+from utils.utils import sanitize_input, safe_json_response
+from core.rate_limiter import check_rate_limit, get_rate_limit_info
+from core.config import GENIUS_API_TOKEN, MAX_REQUESTS_PER_MINUTE, MAX_SEARCH_RESULTS
 
 logger = logging.getLogger(__name__)
 
