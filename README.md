@@ -9,8 +9,6 @@
 
 **Retrieve song lyrics and annotations from Genius.com through the Model Context Protocol**
 
-[Features](#features) • [Quick Start](#quick-start) • [Installation](#installation) • [Usage](#usage) • [Troubleshooting](#troubleshooting)
-
 </div>
 
 ---
