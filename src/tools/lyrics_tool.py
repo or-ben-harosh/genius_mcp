@@ -4,11 +4,11 @@ Lyrics tool for fetching song lyrics with annotation IDs
 
 import logging
 import time
-from ..api.scraper import LyricsScraper
-from ..utils.utils import validate_input, sanitize_input, safe_json_response
-from ..core.cache_manager import get_cache_key, get_cached, set_cache
-from ..core.rate_limiter import check_rate_limit, get_rate_limit_info
-from ..core.config import MAX_REQUESTS_PER_MINUTE
+from api.scraper import LyricsScraper
+from utils.utils import validate_input, sanitize_input, safe_json_response
+from core.cache_manager import get_cache_key, get_cached, set_cache
+from core.rate_limiter import check_rate_limit, get_rate_limit_info
+from core.config import MAX_REQUESTS_PER_MINUTE
 
 logger = logging.getLogger(__name__)
 
