@@ -317,7 +317,7 @@ mcp dev src/server.py
 - [FastMCP Framework](https://github.com/jlowin/fastmcp)
 - [Genius Web API Reference](https://docs.genius.com/)
 
----****
+---
 
 <div align="center">
 
