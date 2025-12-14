@@ -1,6 +1,6 @@
 import time
 from typing import Optional, Dict, Any
-from .config import CACHE_TTL
+from src.core.config import CACHE_TTL
 
 # Simple in-memory cache
 _cache: Dict[str, Dict[str, Any]] = {}

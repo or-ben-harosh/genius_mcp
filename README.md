@@ -102,39 +102,26 @@ uv pip install mcp httpx beautifulsoup4 lxml
 ```
 
 #### Step 3: Configure Your MCP Client
-
-Add to your MCP configuration file:
+1. Clone or download this repository to a location on your computer
+2. Note the full path (e.g., `/Users/yourname/Downloads/genius_mcp`)
 
 **Configuration:**
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "genius": {
-      "command": "python",
-      "args": ["/path/to/genius-mcp/server.py"],
-      "env": {
-        "GENIUS_API_TOKEN": "your_token_here"
-      }
-    }
-  }
-}
-```
-
-**Alternative: Using `uvx` (recommended)**
-
-```json
-{
-  "mcpServers": {
-    "genius": {
-      "command": "uvx",
+      "command": "python3",
       "args": [
-        "--python", "3.12",
-        "--from", "git+https://github.com/your-username/genius-mcp",
-        "genius-mcp"
+        "-m",
+        "src.server"
       ],
+      "cwd": "/path/to/genius_mcp", 
       "env": {
-        "GENIUS_API_TOKEN": "your_token_here"
+        "GENIUS_API_TOKEN": "your_genius_api_token_here", 
+        "PYTHONPATH": "/path/to/genius_mcp" 
       }
     }
   }

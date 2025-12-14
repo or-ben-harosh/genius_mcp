@@ -6,8 +6,8 @@ import logging
 import sys
 from typing import List
 from mcp.server import FastMCP
-from tools import lyrics_tool, annotation_tool, search_tool
-from core.config import validate_config, get_config
+from src.tools import lyrics_tool, annotation_tool, search_tool
+from src.core.config import validate_config, get_config
 from dotenv import load_dotenv
 
 load_dotenv()
