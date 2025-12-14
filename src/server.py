@@ -6,7 +6,7 @@ import logging
 import sys
 from typing import List
 from mcp.server import FastMCP
-from src.tools import lyrics_tool, annotation_tool, search_tool
+from src.tools import lyrics_tool, annotation_tool, search_tool, song_tool, artist_tool
 from src.core.config import validate_config, get_config
 from dotenv import load_dotenv
 
@@ -35,14 +35,14 @@ mcp = FastMCP("genius-lyrics")
 async def get_lyrics_with_ids(song_name: str, artist_name: str) -> str:
     """
     Get song lyrics with annotation IDs inline.
-        
+
     Args:
         song_name: Name of the song (max chars configurable)
         artist_name: Name of the artist (max chars configurable)
 
     Returns:
         Plain text lyrics with [ID: xxx] markers
-        
+
     Example:
         "Look, I was gonna go easy on you" [ID: 2310153]
     """
@@ -70,7 +70,7 @@ async def get_annotation(annotation_ids: List[int]) -> str:
 async def search_songs(query: str, limit: int = 5) -> str:
     """
     Search for songs on Genius.
-    
+
     Args:
         query: Search query (song title, artist, lyrics fragment)
         limit: Number of results to return (1-configurable max, default 5)
@@ -79,6 +79,34 @@ async def search_songs(query: str, limit: int = 5) -> str:
         JSON list of song matches with basic info
     """
     return await search_tool.search_songs(query, limit)
+
+
+@mcp.tool()
+async def get_song(song_id: int) -> str:
+    """
+    Get detailed information about a song by ID.
+
+    Args:
+        song_id: Genius song ID (from search results)
+
+    Returns:
+        JSON with song metadata including title, artist, album, release date, stats, media, and featured artists
+    """
+    return await song_tool.get_song(song_id)
+
+
+@mcp.tool()
+async def get_artist(artist_id: int) -> str:
+    """
+    Get detailed artist information.
+
+    Args:
+        artist_id: Genius artist ID (from song details or search)
+
+    Returns:
+        JSON with artist details including bio, followers, social links, and alternate names
+    """
+    return await artist_tool.get_artist(artist_id)
 
 
 def main():
