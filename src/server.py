@@ -4,13 +4,7 @@ Genius MCP Server
 
 import logging
 import sys
-import os
-from pathlib import Path
 from typing import List
-
-# Add the src directory to Python path for absolute imports
-sys.path.insert(0, str(Path(__file__).parent))
-
 from mcp.server import FastMCP
 from tools import lyrics_tool, annotation_tool, search_tool
 from core.config import validate_config, get_config
